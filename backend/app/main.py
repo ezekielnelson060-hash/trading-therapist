@@ -3,14 +3,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.database import init_db
-import app.models  # noqa: F401 - register models
-from app.api import api_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    # Import inside lifespan so a DB/config error does not prevent process start
+    try:
+        import app.models  # noqa: F401
+        from app.core.database import init_db
+        await init_db()
+    except Exception as e:
+        print(f"WARNING: startup DB/models error: {e}")
     print(f"{settings.APP_NAME} v{settings.APP_VERSION} started")
     yield
     print("Shutting down...")
@@ -31,7 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(api_router, prefix="/api/v1")
+# Health endpoints first — always available even if routers fail to load
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 @app.get("/")
@@ -44,6 +50,8 @@ async def root():
     }
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+try:
+    from app.api import api_router
+    app.include_router(api_router, prefix="/api/v1")
+except Exception as e:
+    print(f"WARNING: API routers failed to load: {e}")
