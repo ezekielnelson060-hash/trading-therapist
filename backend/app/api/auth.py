@@ -44,30 +44,46 @@ class UserOut(BaseModel):
 
 @router.post("/register", response_model=UserOut)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == user_in.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    try:
+        result = await db.execute(select(User).where(User.email == user_in.email))
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-    user = User(
-        email=user_in.email,
-        hashed_password=hash_password(user_in.password),
-        full_name=user_in.full_name,
-    )
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
-    return user
+        user = User(
+            email=user_in.email,
+            hashed_password=hash_password(user_in.password),
+            full_name=user_in.full_name,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error on register: {type(e).__name__}: {e}",
+        )
 
 
 @router.post("/login", response_model=Token)
 async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == user_in.email))
-    user = result.scalar_one_or_none()
-    if not user or not user.hashed_password or not verify_password(user_in.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    try:
+        result = await db.execute(select(User).where(User.email == user_in.email))
+        user = result.scalar_one_or_none()
+        if not user or not user.hashed_password or not verify_password(user_in.password, user.hashed_password):
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
 
-    token = create_access_token(subject=user.id)
-    return Token(access_token=token)
+        token = create_access_token(subject=user.id)
+        return Token(access_token=token)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error on login: {type(e).__name__}: {e}",
+        )
 
 
 @router.get("/me", response_model=UserOut)

@@ -4,14 +4,22 @@ from app.core.config import settings
 
 _url = (settings.DATABASE_URL or "").strip()
 
-# asyncpg: use ssl=True for Supabase. SQLite needs no connect_args.
+# Normalize postgres URLs for asyncpg
+if _url.startswith("postgres://"):
+    _url = _url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif _url.startswith("postgresql://") and "+asyncpg" not in _url:
+    _url = _url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 _connect_args = {}
-if _url.startswith("postgresql") or _url.startswith("postgres"):
+if "postgresql" in _url:
+    # Supabase requires SSL
     _connect_args = {"ssl": True}
+
+print(f"DB engine URL scheme: {_url.split('://')[0] if '://' in _url else 'invalid'}")
 
 engine = create_async_engine(
     _url,
-    echo=bool(settings.DEBUG),
+    echo=False,
     future=True,
     connect_args=_connect_args,
     pool_pre_ping=True,
@@ -33,15 +41,15 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 async def init_db():
@@ -49,9 +57,8 @@ async def init_db():
     import asyncio
     from pathlib import Path
 
-    db_url = _url
-    if "sqlite" in db_url and ":///" in db_url:
-        path = db_url.split(":///./")[-1] if ":///./" in db_url else None
+    if "sqlite" in _url and ":///" in _url:
+        path = _url.split(":///./")[-1] if ":///./" in _url else None
         if path:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -60,7 +67,7 @@ async def init_db():
             await conn.run_sync(Base.metadata.create_all)
 
     try:
-        await asyncio.wait_for(_create(), timeout=20.0)
+        await asyncio.wait_for(_create(), timeout=25.0)
         print("Database tables ready")
     except Exception as e:
         print(f"WARNING: init_db failed (check DATABASE_URL): {type(e).__name__}: {e}")
