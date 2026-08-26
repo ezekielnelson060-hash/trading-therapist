@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from typing import Optional
 
-from app.core.database import get_db
+from app.core.database import get_db, engine
 from app.core.security import (
     hash_password,
     verify_password,
@@ -40,6 +40,18 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+@router.get("/db-check")
+async def db_check():
+    """Diagnostic: can we talk to the database?"""
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("SELECT 1"))
+            result.scalar()
+        return {"db": "ok", "message": "Connected to database"}
+    except Exception as e:
+        return {"db": "error", "type": type(e).__name__, "message": str(e)}
 
 
 @router.post("/register", response_model=UserOut)
