@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import ChatSession, ChatMessage, Trade, User, BehavioralEvent
 from app.services.therapist import generate_therapist_reply
+from app.services.tilt import full_behavioral_snapshot
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ class ChatResponse(BaseModel):
     related_trade_count: int = 0
     related_events: List[str] = []
     llm_used: bool = False
+    tilt_score: Optional[int] = None
 
 
 @router.post("/", response_model=ChatResponse)
@@ -63,33 +65,31 @@ async def chat_with_therapist(
             BehavioralEvent.acknowledged == False,
         )
         .order_by(BehavioralEvent.detected_at.desc())
-        .limit(5)
+        .limit(8)
     )
     recent_events = list(events_result.scalars().all())
 
+    snap = await full_behavioral_snapshot(db, current_user.id)
+    tilt = snap.get("tilt")
+
     from app.core.config import settings
+
     llm_used = bool(settings.OPENAI_API_KEY)
 
     reply = await generate_therapist_reply(
-        body.message, recent_trades, recent_events
+        body.message, recent_trades, recent_events, tilt=tilt
     )
 
-    db.add(
-        ChatMessage(
-            session_id=session.id,
-            role="assistant",
-            content=reply,
-            related_trade_ids=[t.id for t in recent_trades[:5]] if recent_trades else None,
-        )
-    )
+    db.add(ChatMessage(session_id=session.id, role="assistant", content=reply))
     await db.flush()
 
     return ChatResponse(
         session_id=session.id,
         reply=reply,
         related_trade_count=len(recent_trades),
-        related_events=[e.event_type for e in recent_events],
+        related_events=[e.title for e in recent_events if e.title],
         llm_used=llm_used,
+        tilt_score=tilt.get("tilt_score") if tilt else None,
     )
 
 
@@ -101,10 +101,10 @@ async def list_sessions(
     result = await db.execute(
         select(ChatSession)
         .where(ChatSession.user_id == current_user.id)
-        .order_by(ChatSession.started_at.desc())
+        .order_by(ChatSession.created_at.desc())
         .limit(20)
     )
     return [
-        {"id": s.id, "title": s.title, "started_at": s.started_at}
+        {"id": s.id, "title": s.title, "created_at": s.created_at}
         for s in result.scalars().all()
     ]
