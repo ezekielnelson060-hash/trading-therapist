@@ -58,32 +58,21 @@ export const api = {
   },
   me: () => request<{ id: string; email: string; full_name: string; plan: string }>("/auth/me"),
   trades: (limit = 50) => request<any[]>(`/trades/?limit=${limit}`),
-  summary: () =>
-    request<{
-      total_trades: number;
-      total_pnl: number;
-      avg_pnl: number;
-      win_rate: number;
-      wins: number;
-      losses: number;
-    }>("/trades/summary"),
-  tilt: () =>
-    request<{
-      baseline: any;
-      tilt: any;
-      autopsy: any;
-      constitution: any;
-      cost_of_behavior?: any;
-      weekly?: any;
-      total_closed_trades: number;
-      message: string;
-    }>("/analytics/tilt"),
+  summary: () => request<any>("/trades/summary"),
+  tilt: () => request<any>("/analytics/tilt"),
   behavioral: () => request<any>("/analytics/behavioral"),
   events: () => request<any[]>("/analytics/events"),
-  weekly: () =>
-    request<{ weekly: any; cost_of_behavior: any; tilt: any; message: string }>("/analytics/weekly"),
+  weekly: () => request<any>("/analytics/weekly"),
   acknowledgeEvent: (id: string) =>
     request(`/analytics/events/${id}/acknowledge`, { method: "POST" }),
+  acknowledgePause: () =>
+    request<{ status: string; message: string; tilt_score?: number }>("/analytics/pause/acknowledge", {
+      method: "POST",
+    }),
+  overridePause: () =>
+    request<{ status: string; warning: string; tilt_score?: number }>("/analytics/pause/override", {
+      method: "POST",
+    }),
   connectBroker: (broker: string, account_id?: string) =>
     request<{ id: string; api_token?: string; broker: string }>("/brokers/connect", {
       method: "POST",
@@ -91,14 +80,7 @@ export const api = {
     }),
   brokers: () => request<any[]>("/brokers/"),
   chat: (message: string, session_id?: string) =>
-    request<{
-      session_id: string;
-      reply: string;
-      related_trade_count: number;
-      related_events: string[];
-      llm_used: boolean;
-      tilt_score?: number;
-    }>("/chat/", {
+    request<any>("/chat/", {
       method: "POST",
       body: JSON.stringify({ message, session_id }),
     }),
@@ -109,13 +91,8 @@ export const api = {
   updatePlan: (id: string, body: any) =>
     request<any>(`/plans/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePlan: (id: string) => request(`/plans/${id}`, { method: "DELETE" }),
-  createCheckIn: (body: {
-    trade_id?: string;
-    motive: string;
-    confidence: number;
-    emotional_state: number;
-    note?: string;
-  }) => request<any>("/checkins/", { method: "POST", body: JSON.stringify(body) }),
+  createCheckIn: (body: any) =>
+    request<any>("/checkins/", { method: "POST", body: JSON.stringify(body) }),
   motiveStats: () => request<{ motives: any[]; message: string }>("/checkins/motives/stats"),
   demoSeed: () =>
     request<{ status: string; created: number; behavioral_events: number; note: string }>(

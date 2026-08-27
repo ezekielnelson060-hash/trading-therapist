@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from decimal import Decimal
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -15,7 +17,6 @@ async def get_tilt(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Primary product surface: tilt score, baseline, signals, do-not-trade."""
     return await full_behavioral_snapshot(db, current_user.id)
 
 
@@ -91,6 +92,62 @@ async def weekly_behavioral_report(
         "cost_of_behavior": snap.get("cost_of_behavior"),
         "tilt": snap.get("tilt"),
         "message": "Weekly behavior is the product. P&L is secondary.",
+    }
+
+
+@router.post("/pause/acknowledge")
+async def acknowledge_pause(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    snap = await full_behavioral_snapshot(db, current_user.id)
+    tilt = snap.get("tilt") or {}
+    e = BehavioralEvent(
+        user_id=current_user.id,
+        event_type="pause_acknowledged",
+        severity=Decimal(str(tilt.get("tilt_score") or 0)),
+        title="Pause acknowledged",
+        description=(
+            f"Trader acknowledged tilt {tilt.get('tilt_score')}/100 "
+            f"({tilt.get('state_label')}). Recommendation: {tilt.get('recommendation')}"
+        ),
+        details={"tilt": tilt, "at": datetime.now(timezone.utc).isoformat()},
+        acknowledged=True,
+    )
+    db.add(e)
+    await db.flush()
+    return {
+        "status": "ok",
+        "message": "Pause logged. Do not increase risk to recover losses.",
+        "tilt_score": tilt.get("tilt_score"),
+    }
+
+
+@router.post("/pause/override")
+async def override_pause(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    snap = await full_behavioral_snapshot(db, current_user.id)
+    tilt = snap.get("tilt") or {}
+    e = BehavioralEvent(
+        user_id=current_user.id,
+        event_type="pause_override",
+        severity=Decimal(str(tilt.get("tilt_score") or 0)),
+        title="Pause overridden",
+        description=(
+            f"Trader continued despite tilt {tilt.get('tilt_score')}/100. "
+            "This override is stored against your behavioral record."
+        ),
+        details={"tilt": tilt, "at": datetime.now(timezone.utc).isoformat()},
+        acknowledged=False,
+    )
+    db.add(e)
+    await db.flush()
+    return {
+        "status": "ok",
+        "warning": "Override logged. Your constitution still applies.",
+        "tilt_score": tilt.get("tilt_score"),
     }
 
 
