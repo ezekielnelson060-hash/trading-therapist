@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
+import ssl
 
 _url = (settings.DATABASE_URL or "").strip()
 
@@ -12,8 +13,11 @@ elif _url.startswith("postgresql://") and "+asyncpg" not in _url:
 
 _connect_args = {}
 if "postgresql" in _url:
-    # Supabase requires SSL
-    _connect_args = {"ssl": True}
+    # Supabase pooler: require TLS but avoid strict cert-chain failures in some hosts
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    _connect_args = {"ssl": ctx}
 
 print(f"DB engine URL scheme: {_url.split('://')[0] if '://' in _url else 'invalid'}")
 
