@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-BUILD_ID = "2026-08-27-ssl-fix"
+BUILD_ID = "2026-08-27-capacity-billing-v1"
 
 
 @asynccontextmanager
@@ -12,10 +12,11 @@ async def lifespan(app: FastAPI):
     try:
         import app.models  # noqa: F401
         from app.core.database import init_db
+
         await init_db()
     except Exception as e:
         print(f"WARNING: startup DB/models error: {e}")
-    print(f"{settings.APP_NAME} v{settings.APP_VERSION} started build={BUILD_ID}")
+    print(f"{settings.APP_NAME} v{settings.APP_VERSION} build {BUILD_ID} started")
     yield
     print("Shutting down...")
 
@@ -23,7 +24,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="AI Trading Therapist + Behavioral Analytics. Automatic trade data first.",
+    description="Behavioral risk control for traders and prop desks. Real broker data first.",
     lifespan=lifespan,
 )
 
@@ -38,26 +39,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "build": BUILD_ID}
-
-
-@app.get("/db-check")
-async def db_check_root():
-    """Root-level DB diagnostic (easy to open in browser)."""
-    try:
-        from sqlalchemy import text
-        from app.core.database import engine
-
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        return {"db": "ok", "build": BUILD_ID, "message": "Connected to database"}
-    except Exception as e:
-        return {
-            "db": "error",
-            "build": BUILD_ID,
-            "type": type(e).__name__,
-            "message": str(e),
-        }
+    return {"status": "ok", "build": BUILD_ID, "version": settings.APP_VERSION}
 
 
 @app.get("/")
@@ -67,7 +49,7 @@ async def root():
         "version": settings.APP_VERSION,
         "build": BUILD_ID,
         "status": "running",
-        "message": "Automatic trade data first. Traders cannot lie about what they actually did.",
+        "message": "Know when trading is breaking down before the account does.",
     }
 
 
@@ -75,5 +57,6 @@ try:
     from app.api import api_router
 
     app.include_router(api_router, prefix="/api/v1")
+    print(f"API router loaded · build {BUILD_ID}")
 except Exception as e:
     print(f"WARNING: API routers failed to load: {e}")
