@@ -5,14 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { clearToken } from "@/lib/api";
 
 const LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/chat", label: "Therapist" },
-  { href: "/plan", label: "Plan" },
-  { href: "/import", label: "Import" },
+  { href: "/dashboard", label: "State" },
+  { href: "/plan", label: "Constitution" },
+  { href: "/import", label: "Data" },
+  { href: "/checkin", label: "Check-in" },
+  { href: "/chat", label: "Coach" },
 ];
 
-export default function Nav() {
-  const pathname = usePathname();
+export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
+  const path = usePathname();
   const router = useRouter();
 
   function logout() {
@@ -20,38 +21,49 @@ export default function Nav() {
     router.push("/login");
   }
 
+  const link = (href: string, label: string) => (
+    <Link
+      href={href}
+      className={`text-sm transition whitespace-nowrap ${
+        path === href ? "text-blue-400 font-medium" : "text-slate-400 hover:text-white"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+
   return (
-    <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/dashboard" className="text-sm font-bold tracking-tight text-white">
-          Trading Therapist
-        </Link>
-        <nav className="flex flex-wrap items-center gap-1">
-          {LINKS.map((l) => {
-            const active = pathname === l.href;
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                  active
-                    ? "bg-blue-600/20 text-blue-300"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                {l.label}
-              </Link>
-            );
-          })}
+    <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b0f14]/90 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
+        <div className="flex items-center gap-6">
+          <Link href="/dashboard" className="text-lg font-bold tracking-tight text-white">
+            TiltShield
+          </Link>
+          <nav className="hidden items-center gap-5 md:flex">
+            {LINKS.map((l) => (
+              <span key={l.href}>{link(l.href, l.label)}</span>
+            ))}
+          </nav>
+        </div>
+        <div className="flex items-center gap-3">
+          {llmBadge && (
+            <span className="hidden rounded-full bg-emerald-900/40 px-2.5 py-0.5 text-xs text-emerald-300 sm:inline">
+              LLM live
+            </span>
+          )}
           <button
-            type="button"
             onClick={logout}
-            className="ml-2 rounded-lg px-3 py-1.5 text-sm text-slate-500 transition hover:bg-slate-800 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white"
           >
             Log out
           </button>
-        </nav>
+        </div>
       </div>
+      <nav className="flex gap-4 overflow-x-auto border-t border-slate-800/50 px-4 py-2 md:hidden">
+        {LINKS.map((l) => (
+          <span key={l.href}>{link(l.href, l.label)}</span>
+        ))}
+      </nav>
     </header>
   );
 }
