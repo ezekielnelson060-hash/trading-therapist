@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-BUILD_ID = "2026-08-26-dbcheck-v2"
+BUILD_ID = "2026-08-27-ssl-fix"
 
 
 @asynccontextmanager
