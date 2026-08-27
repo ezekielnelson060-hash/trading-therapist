@@ -117,18 +117,15 @@ export const api = {
     note?: string;
   }) => request<any>("/checkins/", { method: "POST", body: JSON.stringify(body) }),
   motiveStats: () => request<{ motives: any[]; message: string }>("/checkins/motives/stats"),
+  demoSeed: () =>
+    request<{ status: string; created: number; behavioral_events: number; note: string }>(
+      "/trades/demo-seed",
+      { method: "POST" }
+    ),
   uploadFlexCsv: async (file: File, account_id = "flex") => {
     const form = new FormData();
     form.append("file", file);
     form.append("account_id", account_id);
-    return request<{
-      status: string;
-      parsed: number;
-      created: number;
-      skipped_duplicates: number;
-      behavioral_events_created: number;
-      warnings: string[];
-      filename: string;
-    }>("/connectors/ibkr/flex-upload", { method: "POST", body: form });
+    return request<any>("/connectors/ibkr/flex-upload", { method: "POST", body: form });
   },
 };
