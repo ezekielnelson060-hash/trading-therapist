@@ -13,27 +13,65 @@ PLANS = {
     "free": {
         "name": "Free",
         "price_usd": 0,
-        "features": ["Basic tilt", "Limited history", "Demo data"],
+        "seat_cap": 1,
+        "features": ["Basic tilt", "Demo data", "1 trader"],
     },
     "trader": {
         "name": "Trader",
-        "price_usd": 15,
-        "features": ["MT5 + IBKR", "Baseline + tilt", "Autopsy", "Coach", "Weekly report"],
+        "price_usd": 19,
+        "seat_cap": 1,
+        "features": [
+            "MT5 + IBKR ingestion",
+            "Baseline + tilt score",
+            "Daily autopsy + weekly report",
+            "Coach grounded in real trades",
+            "1 trader seat",
+        ],
     },
     "pro": {
         "name": "Pro",
-        "price_usd": 39,
+        "price_usd": 49,
+        "seat_cap": 5,
         "features": [
             "Everything in Trader",
             "Tilt alerts + email",
             "Cost of behavior",
             "Soft trading lock",
+            "Up to 5 seats",
         ],
     },
-    "teams": {
-        "name": "Teams / Prop",
-        "price_usd": 99,
-        "features": ["Everything in Pro", "Multi-trader risk view", "Desk aggregation"],
+    "desk_500": {
+        "name": "Desk — 500",
+        "price_usd": 299,
+        "seat_cap": 500,
+        "features": [
+            "Prop / coaching desk risk view",
+            "Up to 500 traders monitored",
+            "Aggregated tilt + high-risk count",
+            "Team invites + roles",
+        ],
+    },
+    "desk_2k": {
+        "name": "Desk — 2,000",
+        "price_usd": 799,
+        "seat_cap": 2000,
+        "features": [
+            "Everything in Desk 500",
+            "Up to 2,000 traders",
+            "Desk-wide behavioral heat",
+            "Coach / risk-manager roles",
+        ],
+    },
+    "desk_10k": {
+        "name": "Desk — 10,000",
+        "price_usd": 2499,
+        "seat_cap": 10000,
+        "features": [
+            "Everything in Desk 2,000",
+            "Up to 10,000 traders",
+            "Enterprise risk monitoring",
+            "Large prop / multi-program scale",
+        ],
     },
 }
 
@@ -45,11 +83,13 @@ async def list_plans():
 
 @router.get("/me")
 async def my_billing(current_user: User = Depends(get_current_user)):
+    plan = current_user.plan or "free"
     return {
-        "plan": current_user.plan or "free",
+        "plan": plan,
         "plan_expires_at": current_user.plan_expires_at,
         "stripe_customer_id": getattr(current_user, "stripe_customer_id", None),
-        "features": PLANS.get(current_user.plan or "free", PLANS["free"])["features"],
+        "features": PLANS.get(plan, PLANS["free"])["features"],
+        "seat_cap": PLANS.get(plan, PLANS["free"]).get("seat_cap"),
     }
 
 
@@ -59,20 +99,27 @@ async def create_checkout(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if plan not in ("trader", "pro", "teams"):
-        raise HTTPException(400, "plan must be trader, pro, or teams")
+    if plan not in ("trader", "pro", "desk_500", "desk_2k", "desk_10k"):
+        raise HTTPException(400, "invalid plan")
 
     if not settings.STRIPE_SECRET_KEY:
         current_user.plan = plan
         await db.flush()
         return {
             "mode": "stub",
-            "message": f"Plan set to {plan} (no Stripe key — demo upgrade).",
+            "message": f"Plan set to {plan} (demo — no Stripe key). Capacity: {PLANS[plan]['seat_cap']} seats.",
             "plan": plan,
             "checkout_url": None,
         }
 
-    price_id = settings.STRIPE_PRICE_TRADER if plan == "trader" else settings.STRIPE_PRICE_PRO
+    price_map = {
+        "trader": settings.STRIPE_PRICE_TRADER,
+        "pro": settings.STRIPE_PRICE_PRO,
+        "desk_500": getattr(settings, "STRIPE_PRICE_DESK_500", None),
+        "desk_2k": getattr(settings, "STRIPE_PRICE_DESK_2K", None),
+        "desk_10k": getattr(settings, "STRIPE_PRICE_DESK_10K", None),
+    }
+    price_id = price_map.get(plan)
     if not price_id:
         raise HTTPException(400, f"Missing Stripe price id for {plan}")
 
