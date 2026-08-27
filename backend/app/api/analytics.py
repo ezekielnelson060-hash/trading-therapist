@@ -73,8 +73,24 @@ async def behavioral_summary(
         "baseline": snap["baseline"],
         "autopsy": snap["autopsy"],
         "constitution": snap["constitution"],
+        "cost_of_behavior": snap.get("cost_of_behavior"),
+        "weekly": snap.get("weekly"),
         "events": events,
         "message": snap["message"],
+    }
+
+
+@router.get("/weekly")
+async def weekly_behavioral_report(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    snap = await full_behavioral_snapshot(db, current_user.id)
+    return {
+        "weekly": snap.get("weekly"),
+        "cost_of_behavior": snap.get("cost_of_behavior"),
+        "tilt": snap.get("tilt"),
+        "message": "Weekly behavior is the product. P&L is secondary.",
     }
 
 
