@@ -91,8 +91,38 @@ export default function DashboardPage() {
             </div>
           </div>
           {tilt?.do_not_trade && (
-            <div className="mt-4 rounded-xl border border-red-700/60 bg-red-950/60 px-4 py-3 text-sm font-medium text-red-100">
-              TRADING PAUSED (recommended) — Behavior outside your baseline. Cooldown 30–60 minutes.
+            <div className="mt-4 space-y-3 rounded-xl border border-red-700/60 bg-red-950/60 px-4 py-3 text-sm font-medium text-red-100">
+              <p>TRADING PAUSED (recommended) — Behavior outside your baseline. Cooldown 30–60 minutes.</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-red-800 px-3 py-1.5 text-xs font-semibold text-white"
+                  onClick={async () => {
+                    try {
+                      const r = await api.acknowledgePause();
+                      setError(r.message || "Pause logged");
+                    } catch (e: any) {
+                      setError(e.message);
+                    }
+                  }}
+                >
+                  I will pause
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs text-red-200"
+                  onClick={async () => {
+                    try {
+                      const r = await api.overridePause();
+                      setError(r.warning || "Override logged");
+                    } catch (e: any) {
+                      setError(e.message);
+                    }
+                  }}
+                >
+                  Override (logged)
+                </button>
+              </div>
             </div>
           )}
           <p className="mt-4 text-sm leading-relaxed opacity-90">{tilt?.recommendation}</p>
@@ -156,10 +186,10 @@ export default function DashboardPage() {
         </div>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="text-sm font-semibold text-slate-300">Today&apos;s trading autopsy</h2>
+          <h2 className="text-sm font-semibold text-slate-300">Today's trading autopsy</h2>
           <div className="mt-3 flex flex-wrap gap-4 text-sm">
             <div>
-              <p className="text-xs text-slate-500">P&amp;L</p>
+              <p className="text-xs text-slate-500">P&L</p>
               <p className={`text-lg font-semibold ${(autopsy?.pnl ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
                 {autopsy?.pnl ?? "—"}
               </p>
@@ -193,7 +223,7 @@ export default function DashboardPage() {
           )}
           {autopsy?.unplanned_trades_pnl_estimate != null && (
             <p className="mt-3 text-sm text-slate-400">
-              Unplanned trades P&amp;L (estimate):{" "}
+              Unplanned trades P&L (estimate):{" "}
               <span className={autopsy.unplanned_trades_pnl_estimate >= 0 ? "text-green-400" : "text-red-400"}>
                 {autopsy.unplanned_trades_pnl_estimate}
               </span>
@@ -209,10 +239,12 @@ export default function DashboardPage() {
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 py-3">
             <p className="text-xs text-slate-500">Win rate</p>
-            <p className="text-lg font-semibold text-white">{summary ? `${(summary.win_rate * 100).toFixed(0)}%` : "—"}</p>
+            <p className="text-lg font-semibold text-white">
+              {summary ? `${(summary.win_rate * 100).toFixed(0)}%` : "—"}
+            </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 py-3">
-            <p className="text-xs text-slate-500">Total P&amp;L</p>
+            <p className="text-xs text-slate-500">Total P&L</p>
             <p className="text-lg font-semibold text-white">{summary?.total_pnl?.toFixed?.(2) ?? "—"}</p>
           </div>
         </section>
