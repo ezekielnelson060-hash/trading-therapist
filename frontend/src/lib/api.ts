@@ -73,20 +73,15 @@ export const api = {
       tilt: any;
       autopsy: any;
       constitution: any;
+      cost_of_behavior?: any;
+      weekly?: any;
       total_closed_trades: number;
       message: string;
     }>("/analytics/tilt"),
-  behavioral: () =>
-    request<{
-      total_trades_analyzed: number;
-      recent_win_rate: number;
-      events: any[];
-      message: string;
-      tilt_score?: number;
-      state?: string;
-      signals?: any;
-    }>("/analytics/behavioral"),
+  behavioral: () => request<any>("/analytics/behavioral"),
   events: () => request<any[]>("/analytics/events"),
+  weekly: () =>
+    request<{ weekly: any; cost_of_behavior: any; tilt: any; message: string }>("/analytics/weekly"),
   acknowledgeEvent: (id: string) =>
     request(`/analytics/events/${id}/acknowledge`, { method: "POST" }),
   connectBroker: (broker: string, account_id?: string) =>
@@ -114,6 +109,14 @@ export const api = {
   updatePlan: (id: string, body: any) =>
     request<any>(`/plans/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePlan: (id: string) => request(`/plans/${id}`, { method: "DELETE" }),
+  createCheckIn: (body: {
+    trade_id?: string;
+    motive: string;
+    confidence: number;
+    emotional_state: number;
+    note?: string;
+  }) => request<any>("/checkins/", { method: "POST", body: JSON.stringify(body) }),
+  motiveStats: () => request<{ motives: any[]; message: string }>("/checkins/motives/stats"),
   uploadFlexCsv: async (file: File, account_id = "flex") => {
     const form = new FormData();
     form.append("file", file);
