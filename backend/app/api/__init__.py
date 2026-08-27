@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import trades, brokers, analytics, chat, auth, connectors, plans
+from app.api import trades, brokers, analytics, chat, auth, connectors, plans, checkins
 
 api_router = APIRouter()
 
@@ -10,3 +10,4 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(connectors.router, prefix="/connectors", tags=["connectors"])
 api_router.include_router(plans.router, prefix="/plans", tags=["plans"])
+api_router.include_router(checkins.router, prefix="/checkins", tags=["checkins"])
