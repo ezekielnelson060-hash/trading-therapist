@@ -67,12 +67,24 @@ export const api = {
       wins: number;
       losses: number;
     }>("/trades/summary"),
+  tilt: () =>
+    request<{
+      baseline: any;
+      tilt: any;
+      autopsy: any;
+      constitution: any;
+      total_closed_trades: number;
+      message: string;
+    }>("/analytics/tilt"),
   behavioral: () =>
     request<{
       total_trades_analyzed: number;
       recent_win_rate: number;
       events: any[];
       message: string;
+      tilt_score?: number;
+      state?: string;
+      signals?: any;
     }>("/analytics/behavioral"),
   events: () => request<any[]>("/analytics/events"),
   acknowledgeEvent: (id: string) =>
@@ -90,6 +102,7 @@ export const api = {
       related_trade_count: number;
       related_events: string[];
       llm_used: boolean;
+      tilt_score?: number;
     }>("/chat/", {
       method: "POST",
       body: JSON.stringify({ message, session_id }),
