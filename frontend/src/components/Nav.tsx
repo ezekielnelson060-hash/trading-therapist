@@ -11,9 +11,12 @@ const LINKS = [
   { href: "/checkin", label: "Check-in" },
   { href: "/weekly", label: "Weekly" },
   { href: "/chat", label: "Coach" },
+  { href: "/alerts", label: "Alerts" },
+  { href: "/teams", label: "Teams" },
+  { href: "/billing", label: "Billing" },
 ];
 
-export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
+export default function Nav() {
   const path = usePathname();
   const router = useRouter();
 
@@ -40,27 +43,17 @@ export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
           <Link href="/dashboard" className="text-lg font-bold tracking-tight text-white">
             TiltShield
           </Link>
-          <nav className="hidden items-center gap-5 md:flex">
+          <nav className="hidden items-center gap-4 lg:flex">
             {LINKS.map((l) => (
               <span key={l.href}>{link(l.href, l.label)}</span>
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-3">
-          {llmBadge && (
-            <span className="hidden rounded-full bg-emerald-900/40 px-2.5 py-0.5 text-xs text-emerald-300 sm:inline">
-              LLM live
-            </span>
-          )}
-          <button
-            onClick={logout}
-            className="rounded-lg px-3 py-1.5 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white"
-          >
-            Log out
-          </button>
-        </div>
+        <button onClick={logout} className="rounded-lg px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white">
+          Log out
+        </button>
       </div>
-      <nav className="flex gap-4 overflow-x-auto border-t border-slate-800/50 px-4 py-2 md:hidden">
+      <nav className="flex gap-4 overflow-x-auto border-t border-slate-800/50 px-4 py-2 lg:hidden">
         {LINKS.map((l) => (
           <span key={l.href}>{link(l.href, l.label)}</span>
         ))}
