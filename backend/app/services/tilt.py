@@ -1,5 +1,4 @@
-"""
-Tilt Engine — personal baseline + tilt score + interventions.
+"""Tilt Engine — personal baseline + tilt score + interventions.
 Core product: stop the behavior that is costing money.
 """
 from __future__ import annotations
@@ -37,7 +36,7 @@ async def _load_closed(db: AsyncSession, user_id: str, limit: int = 200) -> List
 async def _load_plan(db: AsyncSession, user_id: str) -> Optional[TradingPlan]:
     result = await db.execute(
         select(TradingPlan)
-        .where(TradingPlan.user_id == user_id, TradingPlan.is_active == True)  # noqa: E712
+        .where(TradingPlan.user_id == user_id, TradingPlan.active == True)  # noqa: E712
         .order_by(TradingPlan.created_at.desc())
         .limit(1)
     )
@@ -98,15 +97,10 @@ def _today_trades(trades: List[Trade], now: datetime) -> List[Trade]:
     return out
 
 
-def compute_tilt(
-    trades: List[Trade],
-    baseline: Dict[str, Any],
-    plan: Optional[TradingPlan],
-    events: List[BehavioralEvent],
-) -> Dict[str, Any]:
+def compute_tilt(trades, baseline, plan, events):
     now = datetime.now(timezone.utc)
     today = _today_trades(trades, now)
-    signals: Dict[str, Dict[str, Any]] = {}
+    signals = {}
     score = 0.0
 
     streak = 0
@@ -259,6 +253,69 @@ def daily_autopsy(trades, baseline, plan, tilt):
     }
 
 
+def cost_of_behavior(trades, events):
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=30)
+    event_trade_ids = set()
+    for e in events:
+        det = e.detected_at
+        if det and det.tzinfo is None:
+            det = det.replace(tzinfo=timezone.utc)
+        if det and det < cutoff:
+            continue
+        if e.event_type in ("revenge_trading", "size_increase_after_loss", "overtrading"):
+            for tid in (e.trade_ids or []):
+                event_trade_ids.add(tid)
+    leakage = sum(_pnl(t) for t in trades if t.id in event_trade_ids)
+    return {
+        "window_days": 30,
+        "estimated_behavioral_leakage": round(leakage, 2),
+        "note": "Estimate from trades linked to revenge/size-up/overtrading flags — not a guarantee of alternate P&L.",
+        "flagged_trade_count": len(event_trade_ids),
+    }
+
+
+def weekly_report(trades, events, baseline):
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    week = []
+    for t in trades:
+        ts = t.entry_time
+        if not ts:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        if ts >= week_ago:
+            week.append(t)
+    pnl = sum(_pnl(t) for t in week)
+
+    def _in_week(e):
+        det = e.detected_at
+        if not det:
+            return False
+        if det.tzinfo is None:
+            det = det.replace(tzinfo=timezone.utc)
+        return det >= week_ago
+
+    revenge = sum(1 for e in events if e.event_type == "revenge_trading" and _in_week(e))
+    overtrade = sum(1 for e in events if e.event_type == "overtrading" and _in_week(e))
+    biggest = "None flagged"
+    if revenge:
+        biggest = "Entering soon after a loss (revenge pattern)"
+    elif overtrade:
+        biggest = "Overtrading vs your plan/baseline"
+    return {
+        "window_days": 7,
+        "trades": len(week),
+        "pnl": round(pnl, 2),
+        "revenge_flags": revenge,
+        "overtrading_flags": overtrade,
+        "headline": "P&L is not the headline — behavior is.",
+        "biggest_behavioral_leak": biggest,
+        "message": f"{len(week)} trades this week · revenge flags {revenge} · overtrading flags {overtrade}",
+    }
+
+
 async def full_behavioral_snapshot(db: AsyncSession, user_id: str) -> Dict[str, Any]:
     trades = await _load_closed(db, user_id)
     plan = await _load_plan(db, user_id)
@@ -274,17 +331,24 @@ async def full_behavioral_snapshot(db: AsyncSession, user_id: str) -> Dict[str, 
     autopsy = daily_autopsy(trades, baseline, plan, tilt)
     constitution = None
     if plan:
+        rules = plan.other_rules or {}
         constitution = {
             "max_trades_per_day": plan.max_trades_per_day,
-            "risk_per_trade_pct": float(plan.risk_per_trade_pct) if getattr(plan, "risk_per_trade_pct", None) is not None else None,
+            "risk_per_trade_pct": float(plan.max_risk_per_trade) if plan.max_risk_per_trade is not None else None,
+            "max_daily_loss": float(plan.max_daily_loss) if plan.max_daily_loss is not None else None,
             "allowed_symbols": plan.allowed_symbols or [],
             "name": getattr(plan, "name", None) or "Active plan",
+            "cooldown_minutes_after_loss": rules.get("cooldown_minutes_after_loss"),
+            "max_consecutive_losses_before_stop": rules.get("max_consecutive_losses_before_stop"),
+            "no_risk_increase_after_loss": rules.get("no_risk_increase_after_loss", True),
         }
     return {
         "baseline": baseline,
         "tilt": tilt,
         "autopsy": autopsy,
         "constitution": constitution,
+        "cost_of_behavior": cost_of_behavior(trades, events),
+        "weekly": weekly_report(trades, events, baseline),
         "total_closed_trades": len(trades),
         "message": (
             "Behavioral risk view from your real trades — not what you intended to do."
