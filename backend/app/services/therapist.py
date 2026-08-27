@@ -1,78 +1,106 @@
-"""AI Trading Therapist – OpenAI when keyed, rule-based fallback otherwise."""
-from typing import List, Any
+"""Evidence-based Trading Therapist — grounded in real trades + tilt signals."""
+from typing import List, Any, Optional
 from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an expert AI Trading Therapist. Use CBT principles.
-Ground advice in the trader's ACTUAL trade data. Be direct and practical.
-Never invent trades. Prefer concrete rules over vague motivation."""
+SYSTEM_PROMPT = """You are a trading behavioral risk coach, not a motivational chatbot.
+Your job: stop the trader from repeating the behavior that costs money.
+
+Rules:
+- Only cite trades, limits, and events provided in the context. Never invent numbers.
+- Prefer: observe → name the pattern → quantify → one concrete rule for next session.
+- If they exceeded max trades/day or show revenge/size-up after loss, say so plainly.
+- Do not give financial advice on what to buy/sell. Focus on process and risk behavior.
+"""
 
 
-def build_context(trades: List[Any], events: List[Any]) -> str:
+def build_context(trades: List[Any], events: List[Any], tilt: Optional[dict] = None) -> str:
     parts = []
+    if tilt:
+        parts.append(
+            f"Tilt score: {tilt.get('tilt_score')}/100 ({tilt.get('state_label')}). "
+            f"Recommendation: {tilt.get('recommendation')}"
+        )
+        signals = tilt.get("signals") or {}
+        for s in signals.values():
+            if s.get("status") in ("red", "amber"):
+                parts.append(f"Signal [{s.get('status')}]: {s.get('label')} — {s.get('detail')}")
     if trades:
         lines = []
-        for t in trades[:12]:
-            pnl = f"{float(t.net_pnl):+.2f}" if t.net_pnl is not None else "open"
+        for t in trades[:15]:
+            pnl = f"{float(t.net_pnl):+.2f}" if t.net_pnl is not None else "n/a"
             lines.append(f"- {t.symbol} {t.side} size={t.quantity} pnl={pnl}")
         parts.append("Recent real trades:\n" + "\n".join(lines))
     else:
-        parts.append("No trades imported yet.")
+        parts.append("No closed trades in system yet.")
     if events:
-        elines = [f"- [{e.event_type}] {e.title}" for e in events[:6]]
-        parts.append("Open behavioral flags:\n" + "\n".join(elines))
+        elines = [f"- [{e.event_type}] {e.title}: {e.description}" for e in events[:8]]
+        parts.append("Stored behavioral events:\n" + "\n".join(elines))
     return "\n\n".join(parts)
 
 
-async def generate_therapist_reply(user_message: str, trades: List[Any], events: List[Any]) -> str:
-    context = build_context(trades, events)
+def rule_based_reply(user_message: str, trades: List[Any], events: List[Any], tilt: Optional[dict] = None) -> str:
+    msg = (user_message or "").lower()
+    bits = []
+    if tilt:
+        bits.append(
+            f"Your current tilt score is **{tilt.get('tilt_score')}/100** ({tilt.get('state_label')}). "
+            f"{tilt.get('recommendation')}"
+        )
+        for s in (tilt.get("signals") or {}).values():
+            if s.get("status") == "red":
+                bits.append(f"• {s.get('label')}: {s.get('detail')}")
+        if tilt.get("do_not_trade"):
+            bits.append(
+                "Protocol: treat this as a hard pause. Do not increase risk to recover losses. "
+                "Step away for 30–60 minutes."
+            )
+    if events:
+        bits.append("Recent flags from your actual trade stream:")
+        for e in events[:4]:
+            bits.append(f"• {e.title} — {e.description}")
+    if not trades:
+        bits.append(
+            "I don't have closed trades yet. Connect MT5 or upload IBKR Flex so coaching is evidence-based, "
+            "not generic advice."
+        )
+    elif not bits:
+        bits.append(
+            f"You have {len(trades)} closed trades on record. "
+            "Ask about revenge trading, overtrading, or plan adherence and I'll use those numbers."
+        )
+    if "revenge" in msg or "tilt" in msg or "stop" in msg:
+        bits.append(
+            "Rule for next session: after any loss, wait at least 20 minutes and keep size at or below baseline. "
+            "No 'make it back' trades."
+        )
+    return "\n\n".join(bits)
+
+
+async def generate_therapist_reply(
+    user_message: str,
+    trades: List[Any],
+    events: List[Any],
+    tilt: Optional[dict] = None,
+) -> str:
+    context = build_context(trades, events, tilt)
     if settings.OPENAI_API_KEY:
         try:
             from openai import AsyncOpenAI
+
             client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
             response = await client.chat.completions.create(
                 model="gpt-4o-mini",
-                temperature=0.6,
-                max_tokens=450,
+                temperature=0.5,
+                max_tokens=500,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + context},
                     {"role": "user", "content": user_message},
                 ],
             )
-            return response.choices[0].message.content.strip()
+            return response.choices[0].message.content or rule_based_reply(user_message, trades, events, tilt)
         except Exception as e:
-            logger.warning(f"OpenAI failed: {e}")
-    return _rule_based_reply(user_message, trades, events)
-
-
-def _rule_based_reply(user_message: str, trades: List[Any], events: List[Any]) -> str:
-    lower = user_message.lower()
-    event_types = [e.event_type for e in events]
-    if "revenge" in lower or "revenge_trading" in event_types:
-        return (
-            "Revenge trading is expensive. After any loss, wait 15–30 minutes, "
-            "stand up, and only re-enter if the setup still matches your written plan."
-        )
-    if "overtrad" in lower or "overtrading" in event_types:
-        return (
-            "High trade frequency often means emotion, not edge. "
-            "Set a hard daily trade limit and treat it as non-negotiable."
-        )
-    if "size" in lower or "size_increase_after_loss" in event_types:
-        return (
-            "Increasing size after a loss turns small holes into large ones. "
-            "Reset to base size after any losing trade."
-        )
-    if not trades:
-        return (
-            "I don't have your real trade data yet. Connect MT5 or upload an IBKR Flex CSV, "
-            "then I can coach you on what you actually did."
-        )
-    return (
-        f"I can see {len(trades)} recent trades"
-        + (f" and {len(events)} open flags" if events else "")
-        + ". Tell me what you're struggling with (revenge, overtrading, fear, FOMO) "
-        "and I'll give you a concrete fix grounded in your history."
-    )
+            logger.warning("OpenAI therapist failed: %s", e)
+    return rule_based_reply(user_message, trades, events, tilt)
