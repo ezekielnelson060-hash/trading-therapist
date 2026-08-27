@@ -1,11 +1,9 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
-import ssl
 
 _url = (settings.DATABASE_URL or "").strip()
 
-# Normalize postgres URLs for asyncpg
 if _url.startswith("postgres://"):
     _url = _url.replace("postgres://", "postgresql+asyncpg://", 1)
 elif _url.startswith("postgresql://") and "+asyncpg" not in _url:
@@ -13,11 +11,7 @@ elif _url.startswith("postgresql://") and "+asyncpg" not in _url:
 
 _connect_args = {}
 if "postgresql" in _url:
-    # Supabase pooler: require TLS but avoid strict cert-chain failures in some hosts
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    _connect_args = {"ssl": ctx}
+    _connect_args = {"ssl": True}
 
 print(f"DB engine URL scheme: {_url.split('://')[0] if '://' in _url else 'invalid'}")
 
@@ -57,7 +51,6 @@ async def get_db():
 
 
 async def init_db():
-    """Create tables. Never block / crash the process for long."""
     import asyncio
     from pathlib import Path
 
@@ -73,5 +66,24 @@ async def init_db():
     try:
         await asyncio.wait_for(_create(), timeout=25.0)
         print("Database tables ready")
+        await ensure_schema()
     except Exception as e:
         print(f"WARNING: init_db failed (check DATABASE_URL): {type(e).__name__}: {e}")
+
+
+async def ensure_schema():
+    if "postgresql" not in _url:
+        return
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(100)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_locked BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_locked_until TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_lock_reason VARCHAR(255)",
+    ]
+    try:
+        async with engine.begin() as conn:
+            for sql in statements:
+                await conn.exec_driver_sql(sql)
+        print("Schema ensure: user lock/billing columns OK")
+    except Exception as e:
+        print(f"WARNING: ensure_schema: {e}")
