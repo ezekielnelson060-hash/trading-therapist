@@ -16,13 +16,8 @@ const SUGGESTIONS = [
 
 export default function ChatPage() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      role: "assistant",
-      content:
-        "I'm your behavioral risk coach. I only use your real trades and tilt signals — not motivation slogans. What's going on?",
-    },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [seeded, setSeeded] = useState(false);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
@@ -34,12 +29,31 @@ export default function ChatPage() {
       try {
         await api.me();
         const s = await api.tilt().catch(() => null);
-        setTilt(s?.tilt || null);
+        const tiltData = s?.tilt || null;
+        setTilt(tiltData);
+        if (!seeded) {
+          const score = tiltData?.tilt_score;
+          const label = tiltData?.state_label || "unknown";
+          const red = tiltData?.signals
+            ? Object.values(tiltData.signals).find((x: any) => x.status === "red" || x.status === "amber")
+            : null;
+          let opener =
+            "I reviewed your recent trades and tilt signals. I only use your real data — not motivation slogans.";
+          if (score != null) {
+            opener = `I reviewed your recent activity. Tilt is ${score}/100 (${label}).`;
+            if (red) {
+              opener += ` One pattern worth addressing: ${(red as any).label} — ${(red as any).detail}`;
+            }
+            opener += " Want the cost of this behavior, or one rule for the rest of the session?";
+          }
+          setMessages([{ role: "assistant", content: opener }]);
+          setSeeded(true);
+        }
       } catch {
         router.push("/login");
       }
     })();
-  }, [router]);
+  }, [router, seeded]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -77,72 +91,53 @@ export default function ChatPage() {
       <Nav />
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-4">
         {tilt && (
-          <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${banner}`}>
-            <span className="font-semibold">Tilt {tilt.tilt_score}/100</span>
-            <span className="opacity-80"> · {tilt.state_label}</span>
-            {tilt.do_not_trade && <span className="ml-2 font-medium"> — pause recommended</span>}
-            <p className="mt-1 text-xs opacity-90">{tilt.recommendation}</p>
+          <div className={`mb-3 rounded-xl border px-3 py-2 text-sm ${banner}`}>
+            Tilt {tilt.tilt_score}/100 · {tilt.state_label}
+            {tilt.do_not_trade ? " · PAUSE recommended" : ""}
           </div>
         )}
-
-        <div className="flex-1 space-y-3 overflow-y-auto pb-4">
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
           {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  m.role === "user"
-                    ? "bg-blue-600 text-white"
-                    : "border border-slate-700/80 bg-slate-900 text-slate-200"
-                }`}
-              >
-                {m.content}
-              </div>
+            <div
+              key={i}
+              className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                m.role === "user"
+                  ? "ml-auto bg-blue-600 text-white"
+                  : "bg-slate-900 text-slate-200 border border-slate-800"
+              }`}
+            >
+              {m.content}
             </div>
           ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl border border-slate-700/80 bg-slate-900 px-4 py-3 text-sm text-slate-400">
-                Checking your data…
-              </div>
-            </div>
-          )}
+          {loading && <p className="text-sm text-slate-500">Reviewing your data…</p>}
           <div ref={bottomRef} />
         </div>
-
-        {messages.length <= 2 && !loading && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => send(s)}
-                className="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
+        <div className="flex flex-wrap gap-2 pb-2">
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => send(s)}
+              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-white"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
         <form
+          className="flex gap-2 border-t border-slate-800 pt-3"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
-          className="flex gap-2 border-t border-slate-800 pt-4"
         >
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about tilt, revenge, plan adherence…"
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
-            disabled={loading}
+            placeholder="Ask about tilt, revenge, or plan adherence…"
+            className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white"
           />
-          <button
-            type="submit"
-            disabled={loading || !input.trim()}
-            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40"
-          >
+          <button type="submit" disabled={loading} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
             Send
           </button>
         </form>
