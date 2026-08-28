@@ -1,4 +1,4 @@
-from sqlalchemy import String, Boolean, DateTime
+from sqlalchemy import String, Boolean, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -25,6 +25,9 @@ class User(Base):
     trading_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     trading_locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     trading_lock_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    onboarding_day: Mapped[int] = mapped_column(Integer, default=0)
+    last_drip_email_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    drip_emails_sent: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
