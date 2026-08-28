@@ -3,11 +3,11 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import get_current_user, generate_connection_token, hash_token
-from app.models import BrokerConnection, User
+from app.models import User, BrokerConnection
 
 router = APIRouter()
 
@@ -24,9 +24,8 @@ class BrokerConnectionOut(BaseModel):
     account_id: Optional[str]
     account_name: Optional[str]
     status: str
-    last_synced_at: Optional[datetime]
-    sync_enabled: bool
     api_token: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -38,9 +37,12 @@ async def connect_broker(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    supported = {"mt5", "ibkr", "binance", "bybit", "csv"}
+    supported = {
+        "mt5", "ibkr", "ctrader", "tradingview", "ninjatrader",
+        "csv", "generic", "binance", "bybit",
+    }
     if body.broker.lower() not in supported:
-        raise HTTPException(400, f"Unsupported broker. Supported: {supported}")
+        raise HTTPException(400, f"Unsupported broker. Supported: {sorted(supported)}")
 
     raw_token = generate_connection_token()
     token_hash = hash_token(raw_token)
@@ -52,21 +54,18 @@ async def connect_broker(
         account_name=body.account_name or f"{body.broker} account",
         credentials={"token_hash": token_hash},
         status="active",
-        last_synced_at=None,
     )
     db.add(conn)
     await db.flush()
     await db.refresh(conn)
-
     return BrokerConnectionOut(
         id=conn.id,
         broker=conn.broker,
         account_id=conn.account_id,
         account_name=conn.account_name,
         status=conn.status,
-        last_synced_at=conn.last_synced_at,
-        sync_enabled=conn.sync_enabled,
         api_token=raw_token,
+        last_synced_at=conn.last_synced_at,
     )
 
 
@@ -78,7 +77,6 @@ async def list_connections(
     result = await db.execute(
         select(BrokerConnection).where(BrokerConnection.user_id == current_user.id)
     )
-    conns = result.scalars().all()
     return [
         BrokerConnectionOut(
             id=c.id,
@@ -87,10 +85,8 @@ async def list_connections(
             account_name=c.account_name,
             status=c.status,
             last_synced_at=c.last_synced_at,
-            sync_enabled=c.sync_enabled,
-            api_token=None,
         )
-        for c in conns
+        for c in result.scalars().all()
     ]
 
 
@@ -109,20 +105,17 @@ async def rotate_token(
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
-
     raw_token = generate_connection_token()
     conn.credentials = {**(conn.credentials or {}), "token_hash": hash_token(raw_token)}
     await db.flush()
-
     return BrokerConnectionOut(
         id=conn.id,
         broker=conn.broker,
         account_id=conn.account_id,
         account_name=conn.account_name,
         status=conn.status,
-        last_synced_at=conn.last_synced_at,
-        sync_enabled=conn.sync_enabled,
         api_token=raw_token,
+        last_synced_at=conn.last_synced_at,
     )
 
 
@@ -141,8 +134,8 @@ async def trigger_sync(
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
-
-    conn.last_synced_at = datetime.now(timezone.utc)
-    conn.status = "active"
-    await db.flush()
-    return {"message": f"Sync triggered for {conn.broker}", "connection_id": connection_id, "status": "queued"}
+    return {
+        "message": f"Sync triggered for {conn.broker}",
+        "connection_id": connection_id,
+        "status": "queued",
+    }
