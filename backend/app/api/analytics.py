@@ -17,7 +17,15 @@ async def get_tilt(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await full_behavioral_snapshot(db, current_user.id)
+    """Primary product surface: tilt score, baseline, signals, do-not-trade."""
+    snap = await full_behavioral_snapshot(db, current_user.id)
+    try:
+        from app.services.alerts import evaluate_tilt_alerts
+
+        await evaluate_tilt_alerts(db, current_user, snap.get("tilt") or {})
+    except Exception:
+        pass
+    return snap
 
 
 @router.get("/baseline")
@@ -87,8 +95,28 @@ async def weekly_behavioral_report(
     db: AsyncSession = Depends(get_db),
 ):
     snap = await full_behavioral_snapshot(db, current_user.id)
+    week = dict(snap.get("weekly") or {})
+    if "focus_next_week" not in week:
+        revenge = week.get("revenge_flags") or 0
+        over = week.get("overtrading_flags") or 0
+        week["needs_attention"] = (
+            (["Revenge entries after consecutive losses"] if revenge else [])
+            + (["Trade frequency above plan/baseline"] if over else [])
+        ) or ["No major flags this week"]
+        week["improved"] = (
+            ["Fewer revenge flags than a chaotic session"] if not revenge else []
+        ) or ["Keep following your constitution"]
+        week["focus_next_week"] = (
+            "Do not enter another position for 30 minutes after your second consecutive loss."
+            if revenge
+            else (
+                "Cap daily trades at your constitution max and stop when hit."
+                if over
+                else "Protect the baseline: same size, same cooldown after any loss."
+            )
+        )
     return {
-        "weekly": snap.get("weekly"),
+        "weekly": week,
         "cost_of_behavior": snap.get("cost_of_behavior"),
         "tilt": snap.get("tilt"),
         "message": "Weekly behavior is the product. P&L is secondary.",
