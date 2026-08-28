@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
+import ssl
 
 _url = (settings.DATABASE_URL or "").strip()
 
@@ -11,7 +12,10 @@ elif _url.startswith("postgresql://") and "+asyncpg" not in _url:
 
 _connect_args = {}
 if "postgresql" in _url:
-    _connect_args = {"ssl": True}
+    _ssl = ssl.create_default_context()
+    _ssl.check_hostname = False
+    _ssl.verify_mode = ssl.CERT_NONE
+    _connect_args = {"ssl": _ssl}
 
 print(f"DB engine URL scheme: {_url.split('://')[0] if '://' in _url else 'invalid'}")
 
@@ -79,11 +83,14 @@ async def ensure_schema():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_locked BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_locked_until TIMESTAMPTZ",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_lock_reason VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_day INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_drip_email_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS drip_emails_sent INTEGER DEFAULT 0",
     ]
     try:
         async with engine.begin() as conn:
             for sql in statements:
                 await conn.exec_driver_sql(sql)
-        print("Schema ensure: user lock/billing columns OK")
+        print("Schema ensure: user columns OK")
     except Exception as e:
         print(f"WARNING: ensure_schema: {e}")

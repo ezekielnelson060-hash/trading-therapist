@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-BUILD_ID = "2026-08-27-capacity-billing-v1"
+BUILD_ID = "2026-08-28-ssl-drip-v1"
 
 
 @asynccontextmanager
@@ -22,9 +22,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.APP_NAME,
+    title="TiltShield",
     version=settings.APP_VERSION,
-    description="Behavioral risk control for traders and prop desks. Real broker data first.",
+    description="Behavioral risk management for traders and prop desks.",
     lifespan=lifespan,
 )
 
@@ -45,7 +45,7 @@ async def health():
 @app.get("/")
 async def root():
     return {
-        "app": settings.APP_NAME,
+        "app": "TiltShield",
         "version": settings.APP_VERSION,
         "build": BUILD_ID,
         "status": "running",
