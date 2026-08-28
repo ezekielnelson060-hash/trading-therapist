@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/monitor", label: "Monitor" },
   { href: "/patterns", label: "Patterns" },
+  { href: "/trades", label: "Trades" },
   { href: "/plan", label: "Plan" },
   { href: "/chat", label: "Coach" },
   { href: "/weekly", label: "Reports" },
@@ -45,7 +46,7 @@ export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
             TiltShield
           </Link>
           <nav className="hidden items-center gap-4 lg:flex">
-            {LINKS.slice(0, 7).map((l) => (
+            {LINKS.slice(0, 8).map((l) => (
               <span key={l.href}>{link(l.href, l.label)}</span>
             ))}
           </nav>
