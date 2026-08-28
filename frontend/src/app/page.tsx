@@ -120,7 +120,7 @@ export default function MarketingHome() {
           Behavioral risk management
         </p>
         <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
-          Your trading strategy isn&apos;t the problem.
+          Your trading strategy isn't the problem.
           <span className="mt-2 block text-slate-400">What happens when you stop following it is.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-slate-400">
@@ -167,7 +167,7 @@ export default function MarketingHome() {
       <section className="border-y border-slate-800/80 bg-slate-950/50 py-16">
         <div className="mx-auto max-w-3xl px-4">
           <h2 className="text-center text-2xl font-bold text-white">
-            Your P&amp;L tells you what happened.
+            Your P&L tells you what happened.
             <span className="mt-1 block text-slate-400">TiltShield tells you why.</span>
           </h2>
           <div className="mx-auto mt-10 max-w-md space-y-3 text-sm">
@@ -250,7 +250,7 @@ export default function MarketingHome() {
             <p className="mt-1 text-sm text-slate-400">Know your normal. Know when you break it. Know what to do next.</p>
           </div>
           <div id="prop" className="rounded-xl border border-slate-800 p-5">
-            <p className="font-semibold text-white">Prop traders &amp; firms</p>
+            <p className="font-semibold text-white">Prop traders & firms</p>
             <p className="mt-1 text-sm text-slate-400">Desk heatmap: who is elevated or high-risk right now.</p>
           </div>
           <div id="coaches" className="rounded-xl border border-slate-800 p-5 sm:col-span-2">
@@ -275,22 +275,129 @@ export default function MarketingHome() {
         </Link>
       </section>
 
-      <footer className="border-t border-slate-800 py-10">
-        <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-6 px-4 text-xs text-slate-600">
-          <span>TiltShield</span>
-          <div className="flex flex-wrap gap-4">
-            <Link href="/#monitor" className="hover:text-slate-400">
-              Products
-            </Link>
-            <Link href="/#prop" className="hover:text-slate-400">
-              Solutions
-            </Link>
-            <Link href="/billing" className="hover:text-slate-400">
-              Pricing
-            </Link>
-            <Link href="/login" className="hover:text-slate-400">
-              Sign In
-            </Link>
+      <footer className="border-t border-slate-800 bg-[#05070b]">
+        <div className="mx-auto max-w-6xl px-4 py-14">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="lg:col-span-2">
+              <p className="text-base font-bold text-white">TiltShield</p>
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-slate-500">
+                Behavioral risk management for traders and prop desks. Know when trading is breaking down before the
+                account does.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Link
+                  href="/login"
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500"
+                >
+                  Start Free
+                </Link>
+                <Link
+                  href="/login"
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
+                >
+                  Sign In
+                </Link>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Products</p>
+              <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
+                <li>
+                  <Link href="/#monitor" className="hover:text-white">
+                    Behavioral Monitor
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#plan" className="hover:text-white">
+                    Trading Plan
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#coach" className="hover:text-white">
+                    AI Coach
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#analytics" className="hover:text-white">
+                    Analytics
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Solutions</p>
+              <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
+                <li>
+                  <Link href="/#individuals" className="hover:text-white">
+                    Individual Traders
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#prop" className="hover:text-white">
+                    Prop Traders
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#coaches" className="hover:text-white">
+                    Coaches
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#prop" className="hover:text-white">
+                    Prop Firms
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Resources</p>
+              <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
+                <li>
+                  <Link href="/#resources" className="hover:text-white">
+                    Trading Psychology
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#resources" className="hover:text-white">
+                    Behavioral Risk
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#system" className="hover:text-white">
+                    Guides
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Company</p>
+              <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
+                <li>
+                  <Link href="/billing" className="hover:text-white">
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-white">
+                    Sign In
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-white">
+                    Start Free
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-12 flex flex-col gap-3 border-t border-slate-800/80 pt-8 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-600">© 2026 TiltShield. Behavioral risk management.</p>
+            <p className="text-xs text-slate-600">Not a broker. Not financial advice.</p>
           </div>
         </div>
       </footer>
