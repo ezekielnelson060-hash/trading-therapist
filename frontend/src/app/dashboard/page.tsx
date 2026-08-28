@@ -30,6 +30,15 @@ export default function DashboardPage() {
       try {
         const me = await api.me();
         setUser(me);
+        try {
+          const ob = await api.onboardingStatus();
+          if (!ob.complete) {
+            router.replace("/onboarding");
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
         const [t, s] = await Promise.all([
           api.tilt().catch(() => null),
           api.summary().catch(() => null),
@@ -59,6 +68,7 @@ export default function DashboardPage() {
   const autopsy = snap?.autopsy;
   const constitution = snap?.constitution;
   const signals = tilt?.signals ? Object.values(tilt.signals) : [];
+  const noticed = signals.find((s: any) => s.status === "red" || s.status === "amber") as any;
 
   return (
     <div className="min-h-screen bg-[#0b0f14]">
@@ -75,6 +85,24 @@ export default function DashboardPage() {
         {error && (
           <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-300">{error}</p>
         )}
+
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["/monitor", "Open Monitor"],
+            ["/trades", "Trades + verdicts"],
+            ["/chat", "Ask Coach"],
+            ["/import", "Load data"],
+          ].map(([href, label]) => (
+            <button
+              key={href}
+              type="button"
+              onClick={() => router.push(href)}
+              className="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-blue-600 hover:text-white"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <section className={`rounded-2xl border p-6 ${stateBanner(tilt?.color || "green")}`}>
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -128,6 +156,45 @@ export default function DashboardPage() {
           <p className="mt-4 text-sm leading-relaxed opacity-90">{tilt?.recommendation}</p>
         </section>
 
+        <section className="grid gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-center">
+            <p className="text-xs text-slate-500">Plan adherence</p>
+            <p className="text-xl font-bold text-white">
+              {autopsy?.plan_adherence_pct != null ? `${autopsy.plan_adherence_pct}%` : "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-center">
+            <p className="text-xs text-slate-500">Deviation</p>
+            <p className="text-xl font-bold text-white">{tilt?.tilt_score != null ? `${tilt.tilt_score}` : "—"}</p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-center">
+            <p className="text-xs text-slate-500">Today trades</p>
+            <p className="text-xl font-bold text-white">
+              {autopsy?.trades ?? 0}
+              {autopsy?.planned_max != null ? (
+                <span className="text-sm text-slate-500"> / {autopsy.planned_max}</span>
+              ) : null}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-center">
+            <p className="text-xs text-slate-500">Win rate</p>
+            <p className="text-xl font-bold text-white">
+              {summary?.win_rate != null ? `${(summary.win_rate * 100).toFixed(0)}%` : "—"}
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+          <h2 className="text-sm font-semibold text-slate-300">What TiltShield noticed</h2>
+          <p className="mt-2 text-sm text-slate-300">
+            {noticed
+              ? `${noticed.label}: ${noticed.detail}`
+              : tilt?.tilt_score != null && tilt.tilt_score < 30
+                ? "Behavior currently within your normal range."
+                : "Connect trades or load demo data to activate live observations."}
+          </p>
+        </section>
+
         <section>
           <h2 className="mb-3 text-sm font-semibold text-slate-300">Signals</h2>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -152,9 +219,19 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-slate-300">Trading constitution</h2>
             {constitution ? (
               <ul className="mt-3 space-y-1 text-sm text-slate-400">
-                <li>Max trades/day: <span className="text-white">{constitution.max_trades_per_day ?? "—"}</span></li>
-                <li>Risk/trade: <span className="text-white">{constitution.risk_per_trade_pct ?? "—"}%</span></li>
-                <li>Symbols: <span className="text-white">{(constitution.allowed_symbols || []).join(", ") || "—"}</span></li>
+                <li>
+                  Max trades/day: <span className="text-white">{constitution.max_trades_per_day ?? "—"}</span>
+                </li>
+                <li>
+                  Risk/trade:{" "}
+                  <span className="text-white">
+                    {constitution.max_risk_per_trade ?? constitution.risk_per_trade_pct ?? "—"}%
+                  </span>
+                </li>
+                <li>
+                  Symbols:{" "}
+                  <span className="text-white">{(constitution.allowed_symbols || []).join(", ") || "—"}</span>
+                </li>
               </ul>
             ) : (
               <p className="mt-2 text-sm text-slate-500">
@@ -177,77 +254,12 @@ export default function DashboardPage() {
                     : "Pace learning…"}
                 </li>
                 <li>Symbols: {(baseline.preferred_symbols || []).join(", ") || "—"}</li>
-                <li className="text-xs text-slate-600">From {baseline.sample_size} historical trades</li>
               </ul>
             ) : (
               <p className="mt-2 text-sm text-slate-500">{baseline?.message || "Need more closed trades."}</p>
             )}
           </section>
         </div>
-
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="text-sm font-semibold text-slate-300">Today's trading autopsy</h2>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm">
-            <div>
-              <p className="text-xs text-slate-500">P&L</p>
-              <p className={`text-lg font-semibold ${(autopsy?.pnl ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {autopsy?.pnl ?? "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Trades</p>
-              <p className="text-lg font-semibold text-white">
-                {autopsy?.trades ?? 0}
-                {autopsy?.planned_max != null ? (
-                  <span className="text-sm text-slate-500"> / {autopsy.planned_max} planned</span>
-                ) : null}
-              </p>
-            </div>
-            {autopsy?.plan_adherence_pct != null && (
-              <div>
-                <p className="text-xs text-slate-500">Plan adherence</p>
-                <p className="text-lg font-semibold text-white">{autopsy.plan_adherence_pct}%</p>
-              </div>
-            )}
-          </div>
-          {autopsy?.problems?.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {autopsy.problems.map((p: any, i: number) => (
-                <li key={i} className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-300">
-                  <span className={p.severity === "red" ? "text-red-400" : "text-amber-400"}>{p.title}</span>
-                  {" — "}
-                  {p.detail}
-                </li>
-              ))}
-            </ul>
-          )}
-          {autopsy?.unplanned_trades_pnl_estimate != null && (
-            <p className="mt-3 text-sm text-slate-400">
-              Unplanned trades P&L (estimate):{" "}
-              <span className={autopsy.unplanned_trades_pnl_estimate >= 0 ? "text-green-400" : "text-red-400"}>
-                {autopsy.unplanned_trades_pnl_estimate}
-              </span>
-            </p>
-          )}
-          <p className="mt-3 text-sm text-blue-300/90">Tomorrow: {autopsy?.tomorrow_rule}</p>
-        </section>
-
-        <section className="grid grid-cols-3 gap-3 text-center">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 py-3">
-            <p className="text-xs text-slate-500">All trades</p>
-            <p className="text-lg font-semibold text-white">{summary?.total_trades ?? snap?.total_closed_trades ?? 0}</p>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 py-3">
-            <p className="text-xs text-slate-500">Win rate</p>
-            <p className="text-lg font-semibold text-white">
-              {summary ? `${(summary.win_rate * 100).toFixed(0)}%` : "—"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 py-3">
-            <p className="text-xs text-slate-500">Total P&L</p>
-            <p className="text-lg font-semibold text-white">{summary?.total_pnl?.toFixed?.(2) ?? "—"}</p>
-          </div>
-        </section>
 
         <p className="text-center text-xs text-slate-600">
           We measure the gap between your constitution and your real trades — not what you meant to do.
