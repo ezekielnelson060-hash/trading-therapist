@@ -58,6 +58,30 @@ async def list_trades(
     return result.scalars().all()
 
 
+@router.get("/with-context")
+async def trades_with_behavioral_context(
+    limit: int = Query(40, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trade list with behavioral verdict (Disciplined / Behavioral break)."""
+    from app.models.behavior import TradingPlan
+    from app.services.trade_context import annotate_trades
+
+    result = await db.execute(
+        select(Trade)
+        .where(Trade.user_id == current_user.id)
+        .order_by(desc(Trade.entry_time))
+        .limit(limit)
+    )
+    trades = list(result.scalars().all())
+    plan_r = await db.execute(
+        select(TradingPlan).where(TradingPlan.user_id == current_user.id, TradingPlan.active == True)
+    )
+    plan = plan_r.scalar_one_or_none()
+    return {"trades": annotate_trades(trades, plan), "count": len(trades)}
+
+
 @router.get("/summary")
 async def trade_summary(
     current_user: User = Depends(get_current_user),
