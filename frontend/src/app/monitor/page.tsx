@@ -40,6 +40,13 @@ export default function MonitorPage() {
           <p className="text-xs uppercase tracking-widest text-slate-500">Live behavior monitor</p>
           <h1 className="text-2xl font-bold text-white">Cockpit</h1>
           <p className="text-sm text-slate-400">Something is watching your behavior for you.</p>
+          <button
+            type="button"
+            onClick={() => router.push("/trades")}
+            className="mt-2 text-xs text-blue-400 hover:underline"
+          >
+            View trades with verdicts →
+          </button>
         </div>
 
         <section
@@ -85,7 +92,15 @@ export default function MonitorPage() {
                   <tr key={s.label} className="border-t border-slate-800">
                     <td className="px-3 py-2 text-slate-200">{s.label}</td>
                     <td className="px-3 py-2">
-                      <span className={s.status === "red" ? "text-red-400" : s.status === "amber" ? "text-amber-400" : "text-green-400"}>
+                      <span
+                        className={
+                          s.status === "red"
+                            ? "text-red-400"
+                            : s.status === "amber"
+                              ? "text-amber-400"
+                              : "text-green-400"
+                        }
+                      >
                         {s.status}
                       </span>
                     </td>
@@ -102,16 +117,25 @@ export default function MonitorPage() {
           <ul className="space-y-2">
             {events.slice(0, 12).map((e) => (
               <li key={e.id} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm">
-                <span className="text-slate-500">{e.detected_at ? new Date(e.detected_at).toLocaleString() : "—"}</span>
+                <span className="text-slate-500">
+                  {e.detected_at ? new Date(e.detected_at).toLocaleString() : "—"}
+                </span>
                 <span className="mx-2 text-slate-600">·</span>
                 <span className="text-slate-200">{e.title || e.type}</span>
               </li>
             ))}
             {trades.slice(0, 8).map((t) => (
               <li key={t.id} className="rounded-lg border border-slate-800/60 px-3 py-2 text-sm text-slate-400">
-                {t.closed_at || t.opened_at ? new Date(t.closed_at || t.opened_at).toLocaleString() : "—"} — {t.symbol}{" "}
-                <span className={(t.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"}>
-                  {t.pnl != null ? Number(t.pnl).toFixed(2) : "—"}
+                {t.closed_at || t.opened_at || t.entry_time
+                  ? new Date(t.closed_at || t.opened_at || t.entry_time).toLocaleString()
+                  : "—"}{" "}
+                — {t.symbol}{" "}
+                <span className={(t.pnl || t.net_pnl || 0) >= 0 ? "text-green-400" : "text-red-400"}>
+                  {t.pnl != null
+                    ? Number(t.pnl).toFixed(2)
+                    : t.net_pnl != null
+                      ? Number(t.net_pnl).toFixed(2)
+                      : "—"}
                 </span>
               </li>
             ))}

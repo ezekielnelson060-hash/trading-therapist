@@ -4,18 +4,23 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearToken } from "@/lib/api";
 
-const LINKS = [
+const PRIMARY = [
   { href: "/dashboard", label: "Overview" },
   { href: "/monitor", label: "Monitor" },
-  { href: "/patterns", label: "Patterns" },
   { href: "/trades", label: "Trades" },
   { href: "/plan", label: "Plan" },
   { href: "/chat", label: "Coach" },
   { href: "/weekly", label: "Reports" },
+];
+
+const SECONDARY = [
+  { href: "/patterns", label: "Patterns" },
   { href: "/import", label: "Connections" },
   { href: "/alerts", label: "Alerts" },
+  { href: "/checkin", label: "Check-in" },
   { href: "/teams", label: "Teams" },
   { href: "/billing", label: "Billing" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
@@ -46,7 +51,11 @@ export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
             TiltShield
           </Link>
           <nav className="hidden items-center gap-4 lg:flex">
-            {LINKS.slice(0, 8).map((l) => (
+            {PRIMARY.map((l) => (
+              <span key={l.href}>{link(l.href, l.label)}</span>
+            ))}
+            <span className="text-slate-700">|</span>
+            {SECONDARY.slice(0, 3).map((l) => (
               <span key={l.href}>{link(l.href, l.label)}</span>
             ))}
           </nav>
@@ -69,7 +78,11 @@ export default function Nav({ llmBadge }: { llmBadge?: boolean }) {
         </div>
       </div>
       <nav className="flex gap-4 overflow-x-auto border-t border-slate-800/50 px-4 py-2 lg:hidden">
-        {LINKS.map((l) => (
+        {PRIMARY.map((l) => (
+          <span key={l.href}>{link(l.href, l.label)}</span>
+        ))}
+        <span className="text-slate-700">·</span>
+        {SECONDARY.map((l) => (
           <span key={l.href}>{link(l.href, l.label)}</span>
         ))}
       </nav>
