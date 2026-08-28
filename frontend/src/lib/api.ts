@@ -92,6 +92,9 @@ export const api = {
   inviteTeam: (teamId: string, email: string) =>
     request<any>(`/teams/${teamId}/invite`, { method: "POST", body: JSON.stringify({ email, role: "trader" }) }),
   teamRisk: (teamId: string) => request<any>(`/teams/${teamId}/risk`),
+  onboardingStatus: () => request<any>("/onboarding/status"),
+  saveOnboarding: (body: any) =>
+    request<any>("/onboarding/profile", { method: "POST", body: JSON.stringify(body) }),
   uploadFlexCsv: async (file: File, account_id = "flex") => {
     const form = new FormData();
     form.append("file", file);

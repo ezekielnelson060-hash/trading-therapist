@@ -86,6 +86,9 @@ async def ensure_schema():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_day INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_drip_email_at TIMESTAMPTZ",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS drip_emails_sent INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS market_type VARCHAR(50)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS trading_style VARCHAR(50)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_complete BOOLEAN DEFAULT FALSE",
     ]
     try:
         async with engine.begin() as conn:
