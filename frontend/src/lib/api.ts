@@ -55,6 +55,8 @@ export const api = {
   },
   me: () => request<any>("/auth/me"),
   trades: (limit = 50) => request<any[]>(`/trades/?limit=${limit}`),
+  tradesWithContext: (limit = 40) =>
+    request<{ trades: any[]; count: number }>(`/trades/with-context?limit=${limit}`),
   summary: () => request<any>("/trades/summary"),
   tilt: () => request<any>("/analytics/tilt"),
   behavioral: () => request<any>("/analytics/behavioral"),

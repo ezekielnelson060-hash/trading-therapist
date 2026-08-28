@@ -1,4 +1,4 @@
-"""Evidence-based Trading Therapist — grounded in real trades + tilt signals."""
+"""Evidence-based coach — grounded in real trades + tilt signals."""
 from typing import List, Any, Optional
 from app.core.config import settings
 import logging
@@ -13,6 +13,7 @@ Rules:
 - Prefer: observe → name the pattern → quantify → one concrete rule for next session.
 - If they exceeded max trades/day or show revenge/size-up after loss, say so plainly.
 - Do not give financial advice on what to buy/sell. Focus on process and risk behavior.
+- Open like a reviewer of their data, not a blank chatbot.
 """
 
 
@@ -44,6 +45,20 @@ def build_context(trades: List[Any], events: List[Any], tilt: Optional[dict] = N
 def rule_based_reply(user_message: str, trades: List[Any], events: List[Any], tilt: Optional[dict] = None) -> str:
     msg = (user_message or "").lower()
     bits = []
+    n = len(trades or [])
+    if n:
+        losses = sum(1 for x in trades if x.net_pnl is not None and float(x.net_pnl) < 0)
+        bits.append(f"I reviewed your last {n} trades ({losses} losers on record in that window).")
+        red_signals = [
+            s for s in (tilt.get("signals") or {}).values()
+            if s.get("status") in ("red", "amber")
+        ] if tilt else []
+        if red_signals:
+            top = red_signals[0]
+            bits.append(
+                f"One recurring pattern worth addressing: **{top.get('label')}** — {top.get('detail')}"
+            )
+            bits.append("Want the estimated cost of this behavior, or a single rule for the next session?")
     if tilt:
         bits.append(
             f"Your current tilt score is **{tilt.get('tilt_score')}/100** ({tilt.get('state_label')}). "
@@ -54,12 +69,10 @@ def rule_based_reply(user_message: str, trades: List[Any], events: List[Any], ti
                 bits.append(f"• {s.get('label')}: {s.get('detail')}")
         if tilt.get("do_not_trade"):
             bits.append(
-                "Protocol: treat this as a hard pause. Do not increase risk to recover losses. "
-                "Step away for 30–60 minutes."
+                "Protocol: treat this as a hard pause. Do not increase risk to recover losses."
             )
     if events:
-        bits.append("Recent flags from your actual trade stream:")
-        for e in events[:4]:
+        for e in events[:3]:
             bits.append(f"• {e.title} — {e.description}")
     if not trades:
         bits.append(
@@ -100,7 +113,9 @@ async def generate_therapist_reply(
                     {"role": "user", "content": user_message},
                 ],
             )
-            return response.choices[0].message.content or rule_based_reply(user_message, trades, events, tilt)
+            return response.choices[0].message.content or rule_based_reply(
+                user_message, trades, events, tilt
+            )
         except Exception as e:
             logger.warning("OpenAI therapist failed: %s", e)
     return rule_based_reply(user_message, trades, events, tilt)
