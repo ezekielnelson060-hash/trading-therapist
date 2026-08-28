@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-BUILD_ID = "2026-08-28-trades-coach-v1"
+BUILD_ID = "2026-08-28-coach-reports-v1"
 
 
 @asynccontextmanager
