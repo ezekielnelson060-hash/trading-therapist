@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Optional, List
 from decimal import Decimal
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models import User
+from app.models import User, Trade
 from app.models.behavior import TradingPlan
 
 router = APIRouter()
@@ -22,12 +22,31 @@ class OnboardingBody(BaseModel):
     preferred_sessions: Optional[List[str]] = None
     symbols: Optional[List[str]] = None
     complete: bool = False
+    skip: bool = False
 
 
 @router.get("/status")
-async def onboarding_status(current_user: User = Depends(get_current_user)):
+async def onboarding_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Existing accounts with trades or a plan are treated as complete."""
+    complete = bool(getattr(current_user, "onboarding_complete", False))
+    if not complete:
+        n = await db.execute(
+            select(func.count(Trade.id)).where(Trade.user_id == current_user.id)
+        )
+        trade_count = n.scalar() or 0
+        plan_r = await db.execute(
+            select(TradingPlan).where(TradingPlan.user_id == current_user.id).limit(1)
+        )
+        has_plan = plan_r.scalar_one_or_none() is not None
+        if trade_count > 0 or has_plan:
+            current_user.onboarding_complete = True
+            await db.flush()
+            complete = True
     return {
-        "complete": bool(getattr(current_user, "onboarding_complete", False)),
+        "complete": complete,
         "market_type": getattr(current_user, "market_type", None),
         "trading_style": getattr(current_user, "trading_style", None),
     }
@@ -69,7 +88,7 @@ async def save_profile(
             rules["cooldown_minutes_after_loss_streak"] = body.cooldown_after_losses
             plan.other_rules = rules
 
-    if body.complete:
+    if body.complete or body.skip:
         current_user.onboarding_complete = True
     await db.flush()
     return {
@@ -78,3 +97,13 @@ async def save_profile(
         "market_type": current_user.market_type,
         "trading_style": current_user.trading_style,
     }
+
+
+@router.post("/skip")
+async def skip_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user.onboarding_complete = True
+    await db.flush()
+    return {"status": "ok", "complete": True}
