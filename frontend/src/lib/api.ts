@@ -91,9 +91,14 @@ export const api = {
   checkout: (plan: string) => request<any>(`/billing/checkout?plan=${encodeURIComponent(plan)}`, { method: "POST" }),
   teams: () => request<any[]>("/teams/"),
   createTeam: (name: string) => request<any>("/teams/", { method: "POST", body: JSON.stringify({ name }) }),
-  inviteTeam: (teamId: string, email: string) =>
-    request<any>(`/teams/${teamId}/invite`, { method: "POST", body: JSON.stringify({ email, role: "trader" }) }),
+  inviteTeam: (teamId: string, email: string, role = "trader") =>
+    request<any>(`/teams/${teamId}/invite`, {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
   teamRisk: (teamId: string) => request<any>(`/teams/${teamId}/risk`),
+  teamHeatmap: (teamId: string) => request<any>(`/teams/${teamId}/heatmap`),
+  teamHighRisk: (teamId: string) => request<any>(`/teams/${teamId}/high-risk`),
   onboardingStatus: () => request<any>("/onboarding/status"),
   saveOnboarding: (body: any) =>
     request<any>("/onboarding/profile", { method: "POST", body: JSON.stringify(body) }),
@@ -102,5 +107,11 @@ export const api = {
     form.append("file", file);
     form.append("account_id", account_id);
     return request<any>("/connectors/ibkr/flex-upload", { method: "POST", body: form });
+  },
+  uploadGenericCsv: async (file: File, broker_label = "csv") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("broker_label", broker_label);
+    return request<any>("/connectors/csv/upload", { method: "POST", body: form });
   },
 };
