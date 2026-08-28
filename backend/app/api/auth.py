@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
@@ -12,6 +12,8 @@ from app.core.security import (
     get_current_user,
 )
 from app.models import User
+from app.services.drip import maybe_send_drip, DRIP
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -44,12 +46,11 @@ class UserOut(BaseModel):
 
 @router.get("/db-check")
 async def db_check():
-    """Diagnostic: can we talk to the database?"""
     try:
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT 1"))
             result.scalar()
-        return {"db": "ok", "message": "Connected to database"}
+        return {"db": "ok", "message": "Connected to database", "build": "ssl-drip-v1"}
     except Exception as e:
         return {"db": "error", "type": type(e).__name__, "message": str(e)}
 
@@ -69,6 +70,10 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
         db.add(user)
         await db.flush()
         await db.refresh(user)
+        try:
+            await maybe_send_drip(db, user)
+        except Exception:
+            pass
         return user
     except HTTPException:
         raise
@@ -88,6 +93,10 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=401, detail="Incorrect email or password")
 
         token = create_access_token(subject=user.id)
+        try:
+            await maybe_send_drip(db, user)
+        except Exception:
+            pass
         return Token(access_token=token)
     except HTTPException:
         raise
@@ -101,3 +110,17 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/drip/process")
+async def process_drip_for_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    day = await maybe_send_drip(db, current_user)
+    return {
+        "sent_day": day,
+        "drip_emails_sent": getattr(current_user, "drip_emails_sent", 0),
+        "available_days": sorted(DRIP.keys()),
+        "resend_configured": bool(settings.RESEND_API_KEY),
+    }
