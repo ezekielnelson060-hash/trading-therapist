@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [snap, setSnap] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);
   const [error, setError] = useState("");
+  const [needOnboarding, setNeedOnboarding] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -32,10 +33,9 @@ export default function DashboardPage() {
         setUser(me);
         try {
           const ob = await api.onboardingStatus();
-          if (!ob.complete) {
-            router.replace("/onboarding");
-            return;
-          }
+          // Backend auto-marks complete if you already have trades/plan.
+          // Never hard-redirect — only soft nudge.
+          if (!ob.complete) setNeedOnboarding(true);
         } catch {
           /* ignore */
         }
@@ -81,6 +81,19 @@ export default function DashboardPage() {
           </h1>
           <p className="text-sm text-slate-500">{user?.email}</p>
         </div>
+
+        {needOnboarding && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-900/40 bg-blue-950/30 px-4 py-3 text-sm text-blue-100">
+            <span>Optional: finish setup (market, rules, connect) — or skip anytime.</span>
+            <button
+              type="button"
+              className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white"
+              onClick={() => router.push("/onboarding")}
+            >
+              Open setup
+            </button>
+          </div>
+        )}
 
         {error && (
           <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-300">{error}</p>
