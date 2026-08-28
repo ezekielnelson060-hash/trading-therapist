@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api import (
+    onboarding,
     trades,
     brokers,
     analytics,
@@ -28,3 +29,4 @@ api_router.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 api_router.include_router(lock.router, prefix="/lock", tags=["lock"])
 api_router.include_router(billing.router, prefix="/billing", tags=["billing"])
 api_router.include_router(teams.router, prefix="/teams", tags=["teams"])
+api_router.include_router(onboarding.router, prefix="/onboarding", tags=["onboarding"])

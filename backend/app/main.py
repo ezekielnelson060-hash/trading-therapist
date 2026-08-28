@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-BUILD_ID = "2026-08-28-ssl-drip-v1"
+BUILD_ID = "2026-08-28-onboard-monitor-v1"
 
 
 @asynccontextmanager
